@@ -55,6 +55,7 @@ def save_team_ids(team_dict, path="data/team_ids.csv"):
             writer.writerow([name, tid])
     print(f"\nSaved team ID map to {path}")
 
+
 if __name__ == "__main__":
     # Run test to verify all teams
     teams = get_team_ids()
