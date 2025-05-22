@@ -5,6 +5,8 @@ import time
 import os
 import pandas as pd
 import random
+import stats_cleaner
+import time
 
 # using team id data from teamid_scraper, we can now scrape stats for each team.
 BASE_URL = "https://cfbstats.com"
@@ -81,122 +83,151 @@ if not team_dict:
     exit()
 
 #test_teams = list(team_dict.items())[:3]
+if __name__ == "__main__":
 
-# for each year...
-for year in YEARS:
+    start = time.time()
+    
+    # for each year...
+    for year in YEARS:
 
-    # for each team...
-    for team_name, team_id in team_dict.items():
-        
-        url = f"{BASE_URL}/{year}/team/{team_id}/index.html"
-        print(f"Attempting to scrape: {url}")
-
-        try:
-            sleep_time = random.uniform(DELAY * 0.8, DELAY * 1.2)
-            print(f"Sleeping for {sleep_time:.2f} seconds...")
-            time.sleep(sleep_time)
-
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+        # for each team...
+        for team_name, team_id in team_dict.items():
             
-        except requests.exceptions.RequestException as e:
-            print(f"Request failed for {team_name} ({year}): {e}")
-            time.sleep(random.uniform(5, 10)) # let's give it some time :|
-            continue
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+            url = f"{BASE_URL}/{year}/team/{team_id}/index.html"
+            print(f"Attempting to scrape: {url}")
 
-        stat_table = soup.find('table', {'class': 'team-statistics'})
+            try:
+                sleep_time = random.uniform(DELAY * 0.8, DELAY * 1.2)
+                print(f"Sleeping for {sleep_time:.2f} seconds...")
+                time.sleep(sleep_time)
 
-        if not stat_table:
-            print(f"Stat table not found for {team_name} ({year}), Skipping for now.")
-            continue
-
-        row_data = {
-            "year": year,
-            "team": team_name
-        }
-
-        for stat_normalized in key_stats:
-            # clean up the stat name more (ex. Add _'s)
-            clean_name_base = generate_clean_key(stat_normalized)
-
-            if stat_normalized in compound_stat_mapping:
-                mapping = compound_stat_mapping[stat_normalized]
-                # initiliaze compound stat sub parts
-                for sub in mapping['team_keys']:
-                    row_data[sub] = None
-                for sub_opp in mapping['opp_keys']:
-                    row_data[sub_opp] = None
-            else:
-                # initialize key for regular stats
-                row_data[clean_name_base] = None
-                row_data[f"{clean_name_base}_opp"] = None
-
-
-        # for each row within the stat table
-        for row in stat_table.find_all('tr'):
-            # cols is the three data entries (stat_name, team_value, opponent value)
-            cols = row.find_all('td')
-            if len(cols) != 3:
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                
+            except requests.exceptions.RequestException as e:
+                print(f"Request failed for {team_name} ({year}): {e}")
+                time.sleep(random.uniform(5, 10)) # let's give it some time :|
                 continue
             
-            # select the text for each data entry in a row
-            stat_name_raw = cols[0].get_text(strip=True)
-            team_value = cols[1].get_text(strip=True)
-            opponents_value = cols[2].get_text(strip=True)
-            stat_name_normalized = normalize_stat(stat_name_raw)
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-            # if it's a stat we're not paying attention to, continue
-            if stat_name_normalized not in key_stats:
-                continue
-            
-            #print("Found stat label:", stat_name_normalized)
-            
-            clean_name_base = generate_clean_key(stat_name_normalized)
+            row_data = {
+                "year": year,
+                "team": team_name,
+                "wins": None,
+                "losses": None
+            }
 
-            # if it's a compound stat
-            if stat_name_normalized in compound_stat_mapping:
-                mapping = compound_stat_mapping[stat_name_normalized]
-                team_parts = team_value.split(" - ")
-                opp_parts = opponents_value.split(" - ") 
+            # === Win/Loss Scrape ===
+            record_table = soup.find('table', class_='team-record')
 
-                # check if the parts scraped match the mapping dictionary
-                expected_team_parts = len(mapping['team_keys'])
-                if len(team_parts) == expected_team_parts:
-                    # for each stat, add it to row data with it's respective value
-                    for sub_name, val in zip(mapping['team_keys'], team_parts):
-                        row_data[sub_name] = val
-                else:
-                    print(f"Warning: Mismatch in parts for compound stat '{stat_name_raw}' (Normalized: '{stat_name_normalized}') in {year} for {team_name}. Value: '{team_value}'. Expected {expected_parts} parts, got {len(team_parts)}.")
+            if record_table:
+                for row in record_table.find_all('tr'):
+                    cols = row.find_all('td')
+                    if len(cols) == 2:
+                        label = cols[0].get_text(strip=True)
+                        record = cols[1].get_text(strip=True)
 
-                expected_opp_parts = len(mapping['opp_keys'])
-                if len(opp_parts) == expected_opp_parts:
-                     for sub_name_opp, val_opp in zip(mapping['opp_keys'], opp_parts):
-                        row_data[sub_name_opp] = val_opp
-                else:
-                     print(f"Warning: Mismatch in OPPONENT parts for compound stat '{stat_name_raw}' (Normalized: '{stat_name_normalized}') in {year} for {team_name}. Value: '{opponents_value}'. Expected {expected_opp_parts} parts, got {len(opp_parts)}.")
-
-            # if it's a regular(single-valued) stat
+                        if label == "All Games" and "–" in record:
+                            try:
+                                wins_str, losses_str = record.split("–")
+                                row_data['wins'] = int(wins_str)
+                                row_data['losses'] = int(losses_str)
+                            except ValueError:
+                                print(f"Failed to locate Win/Loss record for {team_name} ({year})")
+                            break
             else:
-                row_data[clean_name_base] = team_value
-                row_data[f"{clean_name_base}_opp"] = opponents_value
+                print(f"Warning: Team record table not found for {team_name} ({year}).")
+
+            # === Team Stats Scrape ===
+            stat_table = soup.find('table', {'class': 'team-statistics'})
+
+            if not stat_table:
+                print(f"Stat table not found for {team_name} ({year}), Skipping for now.")
+                continue
+
+            for stat_normalized in key_stats:
+                # clean up the stat name more (ex. Add _'s)
+                clean_name_base = generate_clean_key(stat_normalized)
+
+                if stat_normalized in compound_stat_mapping:
+                    mapping = compound_stat_mapping[stat_normalized]
+                    # initiliaze compound stat sub parts
+                    for sub in mapping['team_keys']:
+                        row_data[sub] = None
+                    for sub_opp in mapping['opp_keys']:
+                        row_data[sub_opp] = None
+                else:
+                    # initialize key for regular stats
+                    row_data[clean_name_base] = None
+                    row_data[f"{clean_name_base}_opp"] = None
 
 
-        # add the data for a given team & a given year into the total data list
-        total_data.append(row_data)
+            # for each row within the stat table
+            for row in stat_table.find_all('tr'):
+                # cols is the three data entries (stat_name, team_value, opponent value)
+                cols = row.find_all('td')
+                if len(cols) != 3:
+                    continue
+                
+                # select the text for each data entry in a row
+                stat_name_raw = cols[0].get_text(strip=True)
+                team_value = cols[1].get_text(strip=True)
+                opponents_value = cols[2].get_text(strip=True)
+                stat_name_normalized = normalize_stat(stat_name_raw)
 
-# after scraping all teams and years, create a pandas df
-df = pd.DataFrame(total_data)
-print("\n--- Scraping Complete ---")
-print("Following is the total data:\n")
-print(df.head())
-print(f"\nDataFrame shape: {df.shape}")
+                # if it's a stat we're not paying attention to, continue
+                if stat_name_normalized not in key_stats:
+                    continue
+                
+                #print("Found stat label:", stat_name_normalized)
+                
+                clean_name_base = generate_clean_key(stat_name_normalized)
 
-# output the data to csv
-os.makedirs('data', exist_ok=True)
-df.to_csv(OUTPUT_FILE, index=False)
-print(f"\nData saved to {OUTPUT_FILE}")
+                # if it's a compound stat
+                if stat_name_normalized in compound_stat_mapping:
+                    mapping = compound_stat_mapping[stat_name_normalized]
+                    team_parts = team_value.split(" - ")
+                    opp_parts = opponents_value.split(" - ") 
+
+                    # check if the parts scraped match the mapping dictionary
+                    expected_team_parts = len(mapping['team_keys'])
+                    if len(team_parts) == expected_team_parts:
+                        # for each stat, add it to row data with it's respective value
+                        for sub_name, val in zip(mapping['team_keys'], team_parts):
+                            row_data[sub_name] = val
+                    else:
+                        print(f"Warning: Mismatch in parts for compound stat '{stat_name_raw}' (Normalized: '{stat_name_normalized}') in {year} for {team_name}. Value: '{team_value}'. Expected {expected_parts} parts, got {len(team_parts)}.")
+
+                    expected_opp_parts = len(mapping['opp_keys'])
+                    if len(opp_parts) == expected_opp_parts:
+                        for sub_name_opp, val_opp in zip(mapping['opp_keys'], opp_parts):
+                            row_data[sub_name_opp] = val_opp
+                    else:
+                        print(f"Warning: Mismatch in OPPONENT parts for compound stat '{stat_name_raw}' (Normalized: '{stat_name_normalized}') in {year} for {team_name}. Value: '{opponents_value}'. Expected {expected_opp_parts} parts, got {len(opp_parts)}.")
+
+                # if it's a regular(single-valued) stat
+                else:
+                    row_data[clean_name_base] = team_value
+                    row_data[f"{clean_name_base}_opp"] = opponents_value
 
 
-### TODO: Scrape wins and losses
+            # add the data for a given team & a given year into the total data list
+            total_data.append(row_data)
+
+    # after scraping all teams and years, create a pandas df
+    df = pd.DataFrame(total_data)
+    end = time.time()
+    print("\n--- Scraping Complete ---")
+    print("Elasped time was: ", end - start)
+    print("Following is the total data:\n")
+    print(df.head())
+    print(f"\nDataFrame shape: {df.shape}")
+
+    # output the data to csv
+    os.makedirs('data', exist_ok=True)
+    df.to_csv(OUTPUT_FILE, index=False)
+    print(f"\nData saved to {OUTPUT_FILE}")
+
+    ### TODO: Run stats cleaner
+    stats_cleaner.main()
