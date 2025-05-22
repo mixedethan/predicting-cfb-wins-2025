@@ -8,7 +8,7 @@ import random
 
 # using team id data from teamid_scraper, we can now scrape stats for each team.
 BASE_URL = "https://cfbstats.com"
-OUTPUT_FILE = "data/team_stats.csv"
+OUTPUT_FILE = "data/team_stats_raw.csv"
 TEAM_FILE = "data/team_ids.csv"
 YEARS = list(range(2016, 2024))
 #YEARS = [2016]
@@ -193,67 +193,10 @@ print("Following is the total data:\n")
 print(df.head())
 print(f"\nDataFrame shape: {df.shape}")
 
-
-### TODO: Data Cleaning
-
-# need to change percentage stats from string to floats
-# need to change time of possesion from string HH:MM:SS to float seconds
-# make columns numeric and not strings
-
-numeric_cols = [
-    'scoring_points_game', 'scoring_points_game_opp',
-    'total_offense_yards___play', 'total_offense_yards___play_opp',
-    'first_downs_total', 'first_downs_total_opp',
-    'passing_rating', 'passing_rating_opp',
-    'rushing_attempts', 'rushing_yards', 'rushing_tds',
-    'rushing_attempts_opp', 'rushing_yards_opp', 'rushing_tds_opp',
-    'pass_attempts', 'pass_completions', 'pass_ints', 'pass_tds',
-    'pass_attempts_opp', 'pass_completions_opp', 'pass_ints_opp', 'pass_tds_opp',
-    'interceptions_returns', 'interceptions_yards', 'interceptions_tds',
-    'interceptions_returns_opp', 'interceptions_yards_opp', 'interceptions_tds_opp',
-    'fumbles_total', 'fumbles_lost',
-    'fumbles_total_opp', 'fumbles_lost_opp',
-    'penalties_number', 'penalties_yards',
-    'penalties_number_opp', 'penalties_yards_opp',
-    'red_zone_success_pct', 'red_zone_success_pct_opp',
-    'redzone_attempts', 'redzone_scores',
-    'redzone_attempts_opp', 'redzone_scores_opp'
-]
-
-def time_to_sec(t):
-    if isinstance(t, str) and ":" in t:
-        try:
-            if '.' in t:
-                # if t contains milliseconds
-                min_secs, millisecs = t.split('.')
-                mins, secs = map(int, min_secs.split(':'))
-                total_secs = mins * 60 + secs + float('0.' + millisecs)
-            else:
-                mins, secs = map(int, t.split(':'))
-                total_seconds = mins * 60 + secs
-            return total_seconds
-        except ValueError:
-            print(f"Couldn't convert time {t} into seconds")
-            return None
-    return t
-
-for col in ['red_zone_success_pct', 'red_zone_success_pct_opp']:
-    if col in df.columns:
-        # converts to string and removes pct sign
-        df[col] = df[col].astype(str).str.replace('%', '', regex=False)
-        # converts column values to numbers
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-    else:
-        print(f"Column {col} was not found in the df.")
-
-# convert all the column stats to numbers and convert time stats to seconds
-df['Passing_Rating'] = pd.to_numeric(df['Passing_Rating'], errors='coerce')
-df['Passing_Rating_opp'] = pd.to_numeric(df['Passing_Rating_opp'], errors='coerce')
-df['time_possession_sec'] = df['Time_of_Possession___Game'].apply(time_to_sec)
-df['time_possession_sec_opp'] = df['Time_of_Possession___Game_opp'].apply(time_to_sec)
-
-
 # output the data to csv
 os.makedirs('data', exist_ok=True)
 df.to_csv(OUTPUT_FILE, index=False)
 print(f"\nData saved to {OUTPUT_FILE}")
+
+
+### TODO: Scrape wins and losses
