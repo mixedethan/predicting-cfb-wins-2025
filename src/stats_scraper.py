@@ -129,7 +129,7 @@ if __name__ == "__main__":
                         record = cols[1].get_text(strip=True)
 
                         if label == "All Games":
-                            # replace both types of hyphens
+                            # replace both types of hyphens.
                             record = record.replace("–", "-").replace("—", "-")
                             if "-" in record:
                                 try:
