@@ -128,14 +128,18 @@ if __name__ == "__main__":
                         label = cols[0].get_text(strip=True)
                         record = cols[1].get_text(strip=True)
 
-                        if label == "All Games" and "–" in record:
-                            try:
-                                wins_str, losses_str = record.split("–")
-                                row_data['wins'] = int(wins_str)
-                                row_data['losses'] = int(losses_str)
-                            except ValueError:
-                                print(f"Failed to locate Win/Loss record for {team_name} ({year})")
-                            break
+                        if label == "All Games":
+                            # replace both types of hyphens
+                            record = record.replace("–", "-").replace("—", "-")
+                            if "-" in record:
+                                try:
+                                    wins_str, losses_str = record.split("-")
+                                    row_data['wins'] = int(wins_str.strip())
+                                    row_data['losses'] = int(losses_str.strip())
+                                    print(f"{team_name} {year} record: {record} => W:{row_data['wins']} L:{row_data['losses']}")
+                                except ValueError:
+                                    print(f"Failed to locate Win/Loss record for {team_name} ({year})")
+                                break
             else:
                 print(f"Warning: Team record table not found for {team_name} ({year}).")
 
