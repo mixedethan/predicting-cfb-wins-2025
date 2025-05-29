@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import csv
 import time
 import os
 import pandas as pd
@@ -82,7 +81,6 @@ if not team_dict:
     print("Couldn't load team information. Exiting.")
     exit()
 
-#test_teams = list(team_dict.items())[:3]
 if __name__ == "__main__":
 
     start = time.time()
@@ -184,7 +182,6 @@ if __name__ == "__main__":
                 if stat_name_normalized not in key_stats:
                     continue
                 
-                #print("Found stat label:", stat_name_normalized)
                 
                 clean_name_base = generate_clean_key(stat_name_normalized)
 
