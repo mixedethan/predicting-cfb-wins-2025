@@ -35,6 +35,7 @@ def clean_data(df):
     for col in ['red_zone_success_pct', 'red_zone_success_pct_opp']:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace('%', '', regex=False)
+            df[col] = df[col].astype(str).str.replace(',', '', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # convert the time to seconds
@@ -45,6 +46,9 @@ def clean_data(df):
     # convert everything to numeric data type
     for col in df.columns:
         if col not in ['team', 'year']:
+            if df[col].dtype == 'object':
+                df[col] = df[col].astype(str).str.strip()
+                df[col] = df[col].str.replace(',', '', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
 
@@ -58,6 +62,10 @@ def clean_data(df):
 
     for col in numeric_columns:
         if col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].astype(str).str.strip()
+                df[col] = df[col].str.replace(',', '', regex=False)
+
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # quick edits to the data to make it look nice
