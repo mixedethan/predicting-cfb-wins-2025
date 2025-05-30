@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np
 
 INPUT_FILE = "data/team_stats_raw.csv"
 OUTPUT_FILE = "data/team_stats_cleaned.csv"
@@ -63,7 +64,43 @@ def clean_data(df):
     df = df.drop(columns=['time_of_possession___game', 'time_of_possession___game_opp'], errors='ignore')
     df['time_possession_sec'].fillna(df['time_possession_sec'].mean(), inplace=True)
 
-    # fill NA numeric cells w/ the column mean
+    ### --- derived stats ---
+
+    # win percentage
+    for col in ['wins', 'losses']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    
+    if 'wins' in df.columns and 'losses' in df.columns:
+        total_games = df['wins'] + df['losses']
+        df['win_percentage'] = df['wins'] / total_games
+        df['win_percentage'].fillna(0, inplace=True)
+    else:
+        print("Warning: Couldn't calculate win percentage!")
+    
+    # turnover margin
+    turnover_cols = [
+        'interceptions_returns', 'fumbles_lost_opp',
+        'pass_ints', 'fumbles_lost'
+    ]
+
+    for col in turnover_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        else:
+            print("Warning: Not all turnover columns are available")
+            df[col] = 0
+    
+    if all(col in df.columns for col in turnover_cols):
+        df['turnovers_gained'] = df['interceptions_returns'] + df['fumbles_lost_opp']
+        df['turnovers_committed'] = df['pass_ints'] + df['fumbles_lost']
+        df['turnover_margin'] = df['turnovers_gained'] - df['turnovers_committed']
+    else:
+        print('Warning: Not all turnover columns were found.')
+        df = df.drop(columns=[col for col in turnover_cols if col not in ['interceptions_returns', 'fumbles_lost_opp', 'pass_ints', 'fumbles_lost']], errors='ignore')
+
+
+    # final check to fill NA numeric cells w/ the column mean
     df.fillna(df.mean(numeric_only=True), inplace=True)
 
     return df
