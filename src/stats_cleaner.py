@@ -59,6 +59,14 @@ def clean_data(df):
         .str.replace("/", "_")
     )
 
+    # quick renaming
+    rename_map = {
+    'total_offense_yards___play': 'avg_yards_per_play',
+    'total_offense_yards___play_opp': 'avg_yards_per_play_opp',
+    }
+
+    df.rename(columns=rename_map, inplace=True)
+
     # clean the percentage columns up
     for col in ['red_zone_success_pct', 'red_zone_success_pct_opp']:
         if col in df.columns:
@@ -135,7 +143,7 @@ def clean_data(df):
 
     net_stats_to_create = [
         'scoring_points_game',
-        'total_offense_yards___play',
+        'avg_yards_per_play',
         'red_zone_success_pct',
         'time_possession_sec',
         'penalties_yards'
