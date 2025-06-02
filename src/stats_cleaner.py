@@ -19,6 +19,34 @@ def time_to_sec(t):
             return None
     return None
 
+def create_net_stat_column(df, base_stat_name, decimals=4):
+    
+    team_col = base_stat_name
+    opp_col = base_stat_name + '_opp'
+    net_col_name = 'net_' + base_stat_name
+
+    # check stat columns exist
+    if team_col not in df.columns or opp_col not in df.columns:
+        print(f"Warning: Cannot calculate '{net_col_name}'.")
+        df[net_col_name] = np.nan
+        return df
+
+    for col in [team_col, opp_col]:
+        if df[col].dtype == 'object':
+             df[col] = df[col].astype(str).str.replace(',', '', regex=False).str.strip()
+             df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col].fillna(df[col].mean(), inplace=True)
+
+    # special handling since we refer opponent minus team for penalties yards.
+    if base_stat_name == 'penalties_yards':
+        df[net_col_name] = df[opp_col] - df[team_col]
+    else:
+        df[net_col_name] = df[team_col] - df[opp_col]
+
+    df[net_col_name] = df[net_col_name].round(decimals)
+
+    return df
+
 def clean_data(df):
     print("\nMissing values before cleaning:\n", df.isna().sum())
 
@@ -42,7 +70,6 @@ def clean_data(df):
     df['time_possession_sec'] = df['time_of_possession___game'].apply(time_to_sec)
     df['time_possession_sec_opp'] = df['time_of_possession___game_opp'].apply(time_to_sec)
 
-
     # convert everything to numeric data type
     for col in df.columns:
         if col not in ['team', 'year']:
@@ -50,7 +77,6 @@ def clean_data(df):
                 df[col] = df[col].astype(str).str.strip()
                 df[col] = df[col].str.replace(',', '', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
 
     # Convert object columns that should be numeric
     numeric_columns = [
@@ -74,7 +100,7 @@ def clean_data(df):
 
     ### --- derived stats ---
 
-    # win percentage
+    # win_percentage
     for col in ['wins', 'losses']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -86,7 +112,7 @@ def clean_data(df):
     else:
         print("Warning: Couldn't calculate win percentage!")
     
-    # turnover margin
+    # turnover_margin
     turnover_cols = [
         'interceptions_returns', 'fumbles_lost_opp',
         'pass_ints', 'fumbles_lost'
@@ -107,7 +133,17 @@ def clean_data(df):
         print('Warning: Not all turnover columns were found.')
         df = df.drop(columns=[col for col in turnover_cols if col not in ['interceptions_returns', 'fumbles_lost_opp', 'pass_ints', 'fumbles_lost']], errors='ignore')
 
+    net_stats_to_create = [
+        'scoring_points_game',
+        'total_offense_yards___play',
+        'red_zone_success_pct',
+        'time_possession_sec',
+        'penalties_yards'
+    ]
 
+    for base_stat in net_stats_to_create:
+        df = create_net_stat_column(df, base_stat)
+    
     # final check to fill NA numeric cells w/ the column mean
     df.fillna(df.mean(numeric_only=True), inplace=True)
 
