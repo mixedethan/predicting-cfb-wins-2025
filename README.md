@@ -51,7 +51,7 @@ All data was scraped from [cfbstats.com](https://www.cfbstats.com/) using custom
 1. Clone this repo (or download the files).
 2. Install the dependencies.
     ```bash
-    pip install requests beautifulsoup4 pandas seaborn matplot lib scikit-learn
+    pip install requests beautifulsoup4 pandas seaborn matplotlib scikit-learn
     ```
     
 3. To run the scraping and cleaning process:
