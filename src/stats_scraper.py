@@ -7,11 +7,13 @@ import random
 import stats_cleaner
 import time
 
+# TODO: Add docstrings for additional readability!
+
 # using team id data from teamid_scraper, we can now scrape stats for each team.
 BASE_URL = "https://cfbstats.com"
 OUTPUT_FILE = "data/team_stats_raw.csv"
 TEAM_FILE = "data/team_ids.csv"
-YEARS = list(range(2016, 2024))
+YEARS = list(range(2016, 2025))
 DELAY = 1.5  # seconds between requests
 total_data = []
 
